@@ -112,6 +112,142 @@
 <div class="ticker"><span class="ticker-inner" id="ticker-text">✦ &nbsp; BOOTLEG JUICE &amp; CO. &nbsp; ✦ &nbsp; PROHIBITION ERA &nbsp; ✦ &nbsp; REDWATER CITY &nbsp; ✦ &nbsp; BREW FAST. SELL FASTER. &nbsp; ✦ &nbsp; CORLEONE FAMILY WATCHING &nbsp; ✦ &nbsp;</span></div>
 
 <script>
+// Eure Cloudflare Worker URL — nach dem Deploy eintragen
+const WORKER_URL = 'https://sparkling-flower-1ad3.nameless-night-309e.workers.dev';
+const MAX        = 15;
+const INTERVAL   = 6000;
+
+let prevCount = 0;
+let prevTop   = '';
+let timer     = INTERVAL / 1000;
+
+function fmt(secs) {
+  if (!secs && secs !== 0) return '—';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function setStatus(ok) {
+  document.getElementById('dot').className = 'dot' + (ok ? '' : ' offline');
+  document.getElementById('status-text').textContent = ok ? 'Live' : 'Keine Verbindung';
+}
+
+async function fetchScores() {
+  try {
+    const url = `${WORKER_URL}/scores?max=${MAX}&ldboard_name=main`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    setStatus(true);
+    render(data.scores || []);
+    timer = INTERVAL / 1000;
+  } catch(e) {
+    setStatus(false);
+  }
+}
+
+function render(scores) {
+  const el = document.getElementById('entries');
+  const isNew = scores.length > prevCount;
+  const topName = scores.length ? scores[0].player_name : '';
+  document.getElementById('stamp').style.opacity = scores.length ? '1' : '0';
+
+  if (!scores.length) {
+    el.innerHTML = '<div class="empty">Noch keine Einträge&hellip;<br><small style="font-size:14px;color:var(--fade)">Spiel beenden und Namen eintragen!</small></div>';
+    prevCount = 0; prevTop = '';
+    return;
+  }
+
+  el.innerHTML = scores.slice(0, MAX).map((s, i) => {
+    const rank = i + 1;
+    const rc = rank === 1 ? 'rank gold' : rank === 2 ? 'rank silver' : rank === 3 ? 'rank bronze' : 'rank';
+    const rl = rank === 1 ? '①' : rank === 2 ? '②' : rank === 3 ? '③' : rank + '.';
+    const rowClass = isNew && rank === 1 && topName !== prevTop ? 'entry new-entry' : 'entry';
+    const newTag   = isNew && rank === 1 && topName !== prevTop ? '<span class="new-tag">neu</span>' : '';
+    const score    = (s.score || 0).toLocaleString('de-DE');
+    const time     = fmt(s.metadata && s.metadata.time ? parseInt(s.metadata.time) : null);
+    return `<div class="${rowClass}" style="animation-delay:${i*0.05}s">
+      <div class="${rc}">${rl}</div>
+      <div class="name">${esc(s.player_name)}${newTag}</div>
+      <div class="score">${score}<span class="coins">🪙 coins</span></div>
+      <div class="time">${time}</div>
+    </div>`;
+  }).join('');
+
+  prevTop   = topName;
+  prevCount = scores.length;
+
+  const names = scores.slice(0, 5).map(s => s.player_name.toUpperCase()).join(' &nbsp;✦&nbsp; ');
+  document.getElementById('ticker-text').innerHTML = `✦ &nbsp; TOP BOOTLEGGER: ${names} &nbsp; ✦ &nbsp; BREW FAST. SELL FASTER. &nbsp; ✦ &nbsp; REDWATER CITY &nbsp; ✦ &nbsp;`;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+setInterval(() => {
+  timer = Math.max(0, timer - 1);
+  document.getElementById('refresh-info').textContent = timer > 0 ? `Aktualisiert in ${timer}s` : 'Aktualisiere…';
+}, 1000);
+
+fetchScores();
+setInterval(fetchScores, INTERVAL);
+</script>
+</body>
+</html>  .rank.bronze { color: #a0522d; }
+
+  .name { font-family: 'Special Elite', serif; font-size: 20px; color: var(--ink); }
+  .new-tag { display: inline-block; font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 1px; text-transform: uppercase; background: var(--red); color: var(--paper); padding: 2px 5px; border-radius: 2px; margin-left: 6px; vertical-align: middle; }
+
+  .score { font-family: 'Courier Prime', monospace; font-size: 16px; font-weight: 700; color: var(--sepia-dark); text-align: right; }
+  .score .coins { font-size: 11px; color: var(--sepia); display: block; letter-spacing: 1px; }
+  .time { font-family: 'Courier Prime', monospace; font-size: 13px; color: var(--fade); text-align: right; }
+
+  .empty { text-align: center; padding: 3rem 1rem; font-size: 20px; color: var(--sepia); line-height: 1.8; }
+
+  .stamp-wrap { position: relative; height: 0; overflow: visible; pointer-events: none; }
+  .stamp { position: absolute; right: 2.5rem; top: -3.5rem; font-family: 'Rye', serif; font-size: 38px; color: rgba(139,26,26,0.18); border: 5px solid rgba(139,26,26,0.15); padding: 6px 14px; transform: rotate(-8deg); letter-spacing: 4px; text-transform: uppercase; white-space: nowrap; transition: opacity 0.5s; }
+
+  .footer { background: var(--paper); border-top: 3px double var(--sepia); padding: 10px 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+  .status { font-family: 'Courier Prime', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--sepia); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #2d6b1a; flex-shrink: 0; }
+  .dot.offline { background: var(--red); }
+  .refresh-info { font-family: 'Courier Prime', monospace; font-size: 10px; letter-spacing: 1px; color: var(--fade); }
+
+  .ticker { background: var(--ink); color: var(--gold); font-family: 'Courier Prime', monospace; font-size: 12px; letter-spacing: 2px; padding: 6px 0; overflow: hidden; white-space: nowrap; }
+  .ticker-inner { display: inline-block; animation: scroll 28s linear infinite; }
+  @keyframes scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="masthead">
+    <div class="edition-line">iExpo Special Edition &nbsp;·&nbsp; Redwater Chronicles</div>
+    <h1>Bootleg Juice &amp; Co.</h1>
+    <div class="masthead-sub">Hall of Bootleggers &mdash; Who Owns Redwater?</div>
+  </div>
+  <div class="ornament">✦ &nbsp; ✦ &nbsp; ✦</div>
+  <div class="lb-body">
+    <div class="col-heads">
+      <span>#</span>
+      <span>Bootlegger</span>
+      <span style="text-align:right">Coins</span>
+      <span style="text-align:right">Zeit</span>
+    </div>
+    <div id="entries"><div class="empty">Lade Rangliste&hellip;</div></div>
+  </div>
+  <div class="stamp-wrap">
+    <div class="stamp" id="stamp" style="opacity:0">MOONSHINE</div>
+  </div>
+  <div class="footer">
+    <div class="status"><span class="dot" id="dot"></span><span id="status-text">Verbinde…</span></div>
+    <div class="refresh-info" id="refresh-info">—</div>
+  </div>
+</div>
+<div class="ticker"><span class="ticker-inner" id="ticker-text">✦ &nbsp; BOOTLEG JUICE &amp; CO. &nbsp; ✦ &nbsp; PROHIBITION ERA &nbsp; ✦ &nbsp; REDWATER CITY &nbsp; ✦ &nbsp; BREW FAST. SELL FASTER. &nbsp; ✦ &nbsp; CORLEONE FAMILY WATCHING &nbsp; ✦ &nbsp;</span></div>
+
+<script>
 const API_KEY  = 'REDACTED_SILENTWOLF_API_KEY';
 const GAME_ID  = 'bootlegjuiceco';
 const MAX      = 15;
