@@ -10,7 +10,7 @@ const SW_BASE = "https://api.silentwolf.com";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
   "Content-Type": "application/json",
 };
@@ -20,10 +20,6 @@ function json(data, init = {}) {
     ...init,
     headers: { ...CORS_HEADERS, ...(init.headers || {}) },
   });
-}
-
-function cleanName(value) {
-  return String(value || "").trim().slice(0, 24);
 }
 
 function cleanLeaderboard(value) {
@@ -71,55 +67,6 @@ export default {
         return json({ scores, success: true });
       } catch (e) {
         return json({ scores: [], success: false, error: e.message }, { status: 500 });
-      }
-    }
-
-    if (request.method === "POST") {
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return json({ success: false, error: "Invalid JSON body" }, { status: 400 });
-      }
-
-      const playerName = cleanName(body.player_name || body.playerName || body.name);
-      const score = Number(body.score);
-      const ldboard = cleanLeaderboard(body.ldboard_name || body.leaderboard || body.leaderboard_name);
-      const metadata = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
-
-      if (!playerName) {
-        return json({ success: false, error: "player_name is required" }, { status: 400 });
-      }
-
-      if (!Number.isFinite(score)) {
-        return json({ success: false, error: "score must be a number" }, { status: 400 });
-      }
-
-      const swPayload = {
-        player_name: playerName,
-        score,
-        ldboard_name: ldboard,
-        metadata,
-      };
-
-      try {
-        const swRes = await fetch(`${SW_BASE}/add_score/${env.SW_GAME_ID}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": env.SW_API_KEY,
-          },
-          body: JSON.stringify(swPayload),
-        });
-        const data = await swRes.json();
-
-        if (!swRes.ok) {
-          return json({ success: false, error: data.message || "SilentWolf request failed" }, { status: swRes.status });
-        }
-
-        return json({ success: true, result: data });
-      } catch (e) {
-        return json({ success: false, error: e.message }, { status: 500 });
       }
     }
 

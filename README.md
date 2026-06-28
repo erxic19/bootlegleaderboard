@@ -12,20 +12,8 @@ Set these Worker environment variables in Cloudflare:
 - `SW_API_KEY`: current SilentWolf API key
 - `SW_GAME_ID`: SilentWolf game ID
 
-Endpoints:
+Endpoint:
 
 - `GET /scores?max=15&ldboard_name=main`
-- `POST /scores`
 
-Example score submit body:
-
-```json
-{
-  "player_name": "Ada",
-  "score": 1234,
-  "ldboard_name": "main",
-  "metadata": {
-    "time": 92
-  }
-}
-```
+Score submission stays in the game. This Worker is read-only.
